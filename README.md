@@ -22,7 +22,10 @@ under the License.
 > **This is a fork of [Apache Superset](https://github.com/apache/superset).**
 > It serves as the target repository for agentic remediation workflow testing.
 > Issues labelled `devin-remediate` are used to exercise automated quality
-> remediation against a real-world codebase. For the upstream project, see
+> remediation against a real-world codebase. The remediation automation itself
+> is managed from the separate
+> [`agentic-devin-swe-remediation`](https://github.com/emillaurence/agentic-devin-swe-remediation)
+> repository. For the upstream project, see
 > [apache/superset](https://github.com/apache/superset).
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/apache-2-0)
