@@ -16,10 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { describe } from '@jest/globals';
 import { sortNumberWithMixedTypes } from './sortUtils';
 import type { ColumnConfig } from '../../types';
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('sortNumberWithMixedTypes', () => {
   const createMockRow = (
     value: any,

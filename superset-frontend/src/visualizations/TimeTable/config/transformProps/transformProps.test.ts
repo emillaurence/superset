@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { describe } from '@jest/globals';
 import {
   DatasourceType,
   ChartProps,
@@ -127,7 +128,6 @@ function createMockChartProps(
   return tableChartProps;
 }
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('TimeTable transformProps', () => {
   test('should transform props correctly for metric rows', () => {
     const props = createMockChartProps();

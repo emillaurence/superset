@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { describe } from '@jest/globals';
 import { processTimeTableData } from './rowProcessing';
 
 const mockData = {
@@ -24,7 +25,6 @@ const mockData = {
   '2023-01-03': { sales: 300 },
 };
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('processTimeTableData', () => {
   test('should convert data to sorted entries', () => {
     const result = processTimeTableData(mockData);

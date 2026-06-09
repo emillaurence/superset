@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { describe } from '@jest/globals';
 import { render } from '@superset-ui/core/spec';
 import Sparkline from './Sparkline';
 
@@ -26,7 +27,6 @@ const mockEntries = [
   { time: '2023-01-04', sales: 400 },
 ];
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('Sparkline', () => {
   test('should render basic sparkline without time ratio', () => {
     const column = {
