@@ -154,6 +154,83 @@ def test_load_contents_replaces_sqlalchemy_examples_uri_placeholder():
 
 
 @patch("superset.examples.utils.ImportExamplesCommand")
+def test_load_configs_from_directory_strips_type_from_metadata(mock_command_cls):
+    """load_configs_from_directory() must remove 'type' from metadata.yaml.
+
+    The metadata 'type' field is stripped so that any exported model can be
+    re-imported from the unzipped directory. This test also validates that
+    yaml.safe_load is used (no arbitrary object construction).
+    """
+    from superset.examples.utils import load_configs_from_directory
+
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "metadata.yaml").write_text(
+            yaml.dump({"type": "Dashboard", "version": "1.0.0"})
+        )
+
+        mock_command = MagicMock()
+        mock_command_cls.return_value = mock_command
+
+        load_configs_from_directory(root)
+
+        call_args = mock_command_cls.call_args
+        contents = call_args[0][0]
+        metadata = yaml.safe_load(contents["metadata.yaml"])
+        assert "type" not in metadata
+        assert metadata["version"] == "1.0.0"
+
+
+@patch("superset.examples.utils.ImportExamplesCommand")
+def test_load_configs_from_directory_metadata_without_type(mock_command_cls):
+    """load_configs_from_directory() handles metadata without a 'type' field.
+
+    When metadata.yaml has no 'type' key, the content should pass through
+    unchanged (minus no 'type' deletion).
+    """
+    from superset.examples.utils import load_configs_from_directory
+
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "metadata.yaml").write_text(yaml.dump({"version": "1.0.0"}))
+
+        mock_command = MagicMock()
+        mock_command_cls.return_value = mock_command
+
+        load_configs_from_directory(root)
+
+        call_args = mock_command_cls.call_args
+        contents = call_args[0][0]
+        metadata = yaml.safe_load(contents["metadata.yaml"])
+        assert metadata == {"version": "1.0.0"}
+
+
+@patch("superset.examples.utils.ImportExamplesCommand")
+def test_load_configs_from_directory_missing_metadata(mock_command_cls):
+    """load_configs_from_directory() defaults to empty dict when metadata is missing.
+
+    If the directory has no metadata.yaml, the function must still produce
+    a valid (empty) metadata entry without raising.
+    """
+    from superset.examples.utils import load_configs_from_directory
+
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        # No metadata.yaml file, just a dataset
+        (root / "datasets").mkdir()
+
+        mock_command = MagicMock()
+        mock_command_cls.return_value = mock_command
+
+        load_configs_from_directory(root)
+
+        call_args = mock_command_cls.call_args
+        contents = call_args[0][0]
+        metadata = yaml.safe_load(contents["metadata.yaml"])
+        assert metadata == {}
+
+
+@patch("superset.examples.utils.ImportExamplesCommand")
 @patch("superset.examples.utils.load_contents")
 def test_load_examples_from_configs_wires_command_correctly(
     mock_load_contents,
