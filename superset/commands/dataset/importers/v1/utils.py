@@ -19,6 +19,7 @@ import logging
 import re
 from typing import Any
 from urllib import request
+from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
 from flask import current_app as app
@@ -84,6 +85,14 @@ def get_dtype(df: pd.DataFrame, dataset: SqlaTable) -> dict[str, VisitableType]:
         for column in dataset.columns
         if column.column_name in df.keys()
     }
+
+
+def redact_url_query(url: str) -> str:
+    """Return *url* with query string and fragment replaced by ``[redacted]``."""
+    parsed = urlparse(url)
+    if not parsed.query and not parsed.fragment:
+        return url
+    return urlunparse(parsed._replace(query="[redacted]", fragment=""))
 
 
 def validate_data_uri(data_uri: str) -> None:
@@ -281,7 +290,7 @@ def load_data(data_uri: str, dataset: SqlaTable, database: Database) -> None:
     data_uri = normalize_example_data_url(data_uri)
 
     validate_data_uri(data_uri)
-    logger.info("Downloading data from %s", data_uri)
+    logger.info("Downloading data from %s", redact_url_query(data_uri))
     data = request.urlopen(data_uri)  # pylint: disable=consider-using-with  # noqa: S310
     if data_uri.endswith(".gz"):
         data = gzip.open(data)
