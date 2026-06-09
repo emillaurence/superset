@@ -94,17 +94,46 @@ export const statsd = new StatsD({
   },
 });
 
-// enforce JWT secret length
-if (startServer && opts.jwtSecret.length < 32) {
-  console.error('ERROR: Please provide a JWT secret at least 32 bytes long');
-  process.exit(1);
-}
+/**
+ * Validates the JWT secret. Returns an error message if the secret is
+ * unsuitable for the given environment, or null when valid.
+ */
+export const validateJwtSecret = (
+  secret: string,
+  env: string | undefined,
+): string | null => {
+  if (secret.length < 32) {
+    return (
+      'Please provide a JWT secret at least 32 bytes long. ' +
+      'Set a secure random value via the jwtSecret config key or the JWT_SECRET environment variable.'
+    );
+  }
 
-if (startServer && opts.jwtSecret.startsWith('CHANGE-ME')) {
-  console.warn(
-    'WARNING: it appears your secret in your config.json is insecure',
-  );
-  console.warn('DO NOT USE IN PRODUCTION');
+  if (secret.startsWith('CHANGE-ME')) {
+    const isDevOrTest = env === 'development' || env === 'test';
+    if (!isDevOrTest) {
+      return (
+        'Placeholder JWT secret detected (starts with "CHANGE-ME"). ' +
+        'Set a secure random secret at least 32 characters long via the ' +
+        'jwtSecret config key or the JWT_SECRET environment variable.'
+      );
+    }
+    console.warn(
+      'WARNING: it appears your secret in your config.json is insecure',
+    );
+    console.warn('DO NOT USE IN PRODUCTION');
+  }
+
+  return null;
+};
+
+// enforce JWT secret requirements at startup
+if (startServer) {
+  const jwtError = validateJwtSecret(opts.jwtSecret, environment);
+  if (jwtError) {
+    console.error(`ERROR: ${jwtError}`);
+    process.exit(1);
+  }
 }
 
 export const buildRedisOpts = (baseConfig: RedisConfig) => {

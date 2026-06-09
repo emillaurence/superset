@@ -17,7 +17,7 @@
   },
   "redisStreamPrefix": "async-events-",
   "jwtAlgorithms": ["HS256"],
-  "jwtSecret": "CHANGE-ME",
+  "jwtSecret": "CHANGE-ME-TO-A-SECURE-RANDOM-SECRET-AT-LEAST-32-CHARS",
   "jwtCookieName": "async-token",
   "allowedOrigins": []
 }
