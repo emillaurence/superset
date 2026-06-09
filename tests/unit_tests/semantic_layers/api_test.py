@@ -1542,6 +1542,450 @@ def test_connections_semantic_layer_filters_by_perms(
 
 
 # =============================================================================
+# Connections: sorting and pagination tests
+# =============================================================================
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_sort_by_changed_on_desc(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ sorts by changed_on descending by default."""
+    from datetime import datetime
+
+    mock_db = MagicMock()
+    mock_db.id = 1
+    mock_db.uuid = uuid_lib.uuid4()
+    mock_db.database_name = "Old DB"
+    mock_db.backend = "postgresql"
+    mock_db.allow_run_async = False
+    mock_db.allow_dml = False
+    mock_db.allow_file_upload = False
+    mock_db.expose_in_sqllab = True
+    mock_db.changed_on = datetime(2025, 1, 1)
+    mock_db.changed_on_delta_humanized.return_value = "1 year ago"
+    mock_db.changed_by = None
+
+    mock_layer = MagicMock()
+    mock_layer.uuid = uuid_lib.uuid4()
+    mock_layer.name = "Recent Layer"
+    mock_layer.type = "snowflake"
+    mock_layer.description = None
+    mock_layer.cache_timeout = None
+    mock_layer.changed_on = datetime(2026, 6, 1)
+    mock_layer.changed_on_delta_humanized.return_value = "1 day ago"
+    mock_layer.changed_by = None
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = [mock_db]
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = [mock_layer]
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mock_cls = MagicMock()
+    mock_cls.name = "Snowflake"
+    mocker.patch.dict(
+        "superset.semantic_layers.api.registry",
+        {"snowflake": mock_cls},
+        clear=True,
+    )
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    # Default sort is changed_on desc
+    q = rison_lib.dumps({"order_column": "changed_on", "order_direction": "desc"})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    result = response.json["result"]
+    assert len(result) == 2
+    # Most recently changed item first
+    assert result[0]["database_name"] == "Recent Layer"
+    assert result[1]["database_name"] == "Old DB"
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_sort_by_changed_on_asc(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ sorts by changed_on ascending."""
+    from datetime import datetime
+
+    mock_db = MagicMock()
+    mock_db.id = 1
+    mock_db.uuid = uuid_lib.uuid4()
+    mock_db.database_name = "Old DB"
+    mock_db.backend = "postgresql"
+    mock_db.allow_run_async = False
+    mock_db.allow_dml = False
+    mock_db.allow_file_upload = False
+    mock_db.expose_in_sqllab = True
+    mock_db.changed_on = datetime(2025, 1, 1)
+    mock_db.changed_on_delta_humanized.return_value = "1 year ago"
+    mock_db.changed_by = None
+
+    mock_layer = MagicMock()
+    mock_layer.uuid = uuid_lib.uuid4()
+    mock_layer.name = "Recent Layer"
+    mock_layer.type = "snowflake"
+    mock_layer.description = None
+    mock_layer.cache_timeout = None
+    mock_layer.changed_on = datetime(2026, 6, 1)
+    mock_layer.changed_on_delta_humanized.return_value = "1 day ago"
+    mock_layer.changed_by = None
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = [mock_db]
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = [mock_layer]
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mock_cls = MagicMock()
+    mock_cls.name = "Snowflake"
+    mocker.patch.dict(
+        "superset.semantic_layers.api.registry",
+        {"snowflake": mock_cls},
+        clear=True,
+    )
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    q = rison_lib.dumps({"order_column": "changed_on", "order_direction": "asc"})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    result = response.json["result"]
+    assert len(result) == 2
+    # Oldest item first
+    assert result[0]["database_name"] == "Old DB"
+    assert result[1]["database_name"] == "Recent Layer"
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_pagination(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ paginates with page and page_size."""
+    from datetime import datetime
+
+    # Create 3 items with distinct changed_on values
+    items = []
+    for i in range(3):
+        mock = MagicMock()
+        mock.id = i + 1
+        mock.uuid = uuid_lib.uuid4()
+        mock.database_name = f"DB {i}"
+        mock.backend = "postgresql"
+        mock.allow_run_async = False
+        mock.allow_dml = False
+        mock.allow_file_upload = False
+        mock.expose_in_sqllab = True
+        mock.changed_on = datetime(2026, 1, i + 1)
+        mock.changed_on_delta_humanized.return_value = f"{3 - i} days ago"
+        mock.changed_by = None
+        items.append(mock)
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = items
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = []
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    # Request page 0 with page_size 2 (default sort: changed_on desc)
+    q = rison_lib.dumps({"page": 0, "page_size": 2})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    assert response.json["count"] == 3  # total count includes all items
+    assert len(response.json["result"]) == 2  # page contains only 2 items
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_pagination_second_page(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ returns correct items on the second page."""
+    from datetime import datetime
+
+    items = []
+    for i in range(3):
+        mock = MagicMock()
+        mock.id = i + 1
+        mock.uuid = uuid_lib.uuid4()
+        mock.database_name = f"DB {i}"
+        mock.backend = "postgresql"
+        mock.allow_run_async = False
+        mock.allow_dml = False
+        mock.allow_file_upload = False
+        mock.expose_in_sqllab = True
+        mock.changed_on = datetime(2026, 1, i + 1)
+        mock.changed_on_delta_humanized.return_value = f"{3 - i} days ago"
+        mock.changed_by = None
+        items.append(mock)
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = items
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = []
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    # Request page 1 with page_size 2 — should get the remaining 1 item
+    q = rison_lib.dumps({"page": 1, "page_size": 2})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    assert response.json["count"] == 3  # total count unchanged
+    assert len(response.json["result"]) == 1  # only 1 item on second page
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_pagination_beyond_last_page(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ returns empty result for pages past the end."""
+    from datetime import datetime
+
+    mock_db = MagicMock()
+    mock_db.id = 1
+    mock_db.uuid = uuid_lib.uuid4()
+    mock_db.database_name = "Only DB"
+    mock_db.backend = "postgresql"
+    mock_db.allow_run_async = False
+    mock_db.allow_dml = False
+    mock_db.allow_file_upload = False
+    mock_db.expose_in_sqllab = True
+    mock_db.changed_on = datetime(2026, 1, 1)
+    mock_db.changed_on_delta_humanized.return_value = "1 day ago"
+    mock_db.changed_by = None
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = [mock_db]
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = []
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    # Page 10 with default page_size — way past the single item
+    q = rison_lib.dumps({"page": 10, "page_size": 25})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    assert response.json["count"] == 1  # total count reflects all items
+    assert response.json["result"] == []  # no items on this page
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_sort_by_name_desc(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test GET /connections/ sorts by database_name descending."""
+    from datetime import datetime
+
+    mock_db = MagicMock()
+    mock_db.id = 1
+    mock_db.uuid = uuid_lib.uuid4()
+    mock_db.database_name = "Alpha DB"
+    mock_db.backend = "postgresql"
+    mock_db.allow_run_async = False
+    mock_db.allow_dml = False
+    mock_db.allow_file_upload = False
+    mock_db.expose_in_sqllab = True
+    mock_db.changed_on = datetime(2026, 1, 1)
+    mock_db.changed_on_delta_humanized.return_value = "1 month ago"
+    mock_db.changed_by = None
+
+    mock_layer = MagicMock()
+    mock_layer.uuid = uuid_lib.uuid4()
+    mock_layer.name = "Zebra Layer"
+    mock_layer.type = "snowflake"
+    mock_layer.description = None
+    mock_layer.cache_timeout = None
+    mock_layer.changed_on = datetime(2026, 2, 1)
+    mock_layer.changed_on_delta_humanized.return_value = "1 day ago"
+    mock_layer.changed_by = None
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = [mock_db]
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = [mock_layer]
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mock_cls = MagicMock()
+    mock_cls.name = "Snowflake"
+    mocker.patch.dict(
+        "superset.semantic_layers.api.registry",
+        {"snowflake": mock_cls},
+        clear=True,
+    )
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    q = rison_lib.dumps({"order_column": "database_name", "order_direction": "desc"})
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    result = response.json["result"]
+    assert result[0]["database_name"] == "Zebra Layer"
+    assert result[1]["database_name"] == "Alpha DB"
+
+
+@SEMANTIC_LAYERS_APP
+def test_connections_mixed_results_sorted_with_pagination(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Test sort + pagination works correctly for mixed database/layer results."""
+    from datetime import datetime
+
+    mock_db1 = MagicMock()
+    mock_db1.id = 1
+    mock_db1.uuid = uuid_lib.uuid4()
+    mock_db1.database_name = "Beta DB"
+    mock_db1.backend = "postgresql"
+    mock_db1.allow_run_async = False
+    mock_db1.allow_dml = False
+    mock_db1.allow_file_upload = False
+    mock_db1.expose_in_sqllab = True
+    mock_db1.changed_on = datetime(2026, 3, 1)
+    mock_db1.changed_on_delta_humanized.return_value = "3 months ago"
+    mock_db1.changed_by = None
+
+    mock_db2 = MagicMock()
+    mock_db2.id = 2
+    mock_db2.uuid = uuid_lib.uuid4()
+    mock_db2.database_name = "Delta DB"
+    mock_db2.backend = "mysql"
+    mock_db2.allow_run_async = True
+    mock_db2.allow_dml = False
+    mock_db2.allow_file_upload = False
+    mock_db2.expose_in_sqllab = True
+    mock_db2.changed_on = datetime(2026, 1, 1)
+    mock_db2.changed_on_delta_humanized.return_value = "5 months ago"
+    mock_db2.changed_by = None
+
+    mock_layer = MagicMock()
+    mock_layer.uuid = uuid_lib.uuid4()
+    mock_layer.name = "Alpha Layer"
+    mock_layer.type = "snowflake"
+    mock_layer.description = None
+    mock_layer.cache_timeout = None
+    mock_layer.changed_on = datetime(2026, 5, 1)
+    mock_layer.changed_on_delta_humanized.return_value = "1 month ago"
+    mock_layer.changed_by = None
+
+    mock_db_session = mocker.patch("superset.semantic_layers.api.db.session")
+    db_query = MagicMock()
+    db_query.options.return_value = db_query
+    db_query.all.return_value = [mock_db1, mock_db2]
+    sl_query = MagicMock()
+    sl_query.options.return_value = sl_query
+    sl_query.all.return_value = [mock_layer]
+    mock_db_session.query.side_effect = [db_query, sl_query]
+
+    mock_cls = MagicMock()
+    mock_cls.name = "Snowflake"
+    mocker.patch.dict(
+        "superset.semantic_layers.api.registry",
+        {"snowflake": mock_cls},
+        clear=True,
+    )
+
+    mocker.patch(
+        "superset.semantic_layers.api.is_feature_enabled",
+        return_value=True,
+    )
+
+    import prison as rison_lib
+
+    # Sort by name asc, page_size=2, page=0 — should get first 2 alphabetically
+    q = rison_lib.dumps(
+        {
+            "order_column": "database_name",
+            "order_direction": "asc",
+            "page": 0,
+            "page_size": 2,
+        }
+    )
+    response = client.get(f"/api/v1/semantic_layer/connections/?q={q}")
+
+    assert response.status_code == 200
+    assert response.json["count"] == 3
+    result = response.json["result"]
+    assert len(result) == 2
+    # Alphabetical: Alpha Layer, Beta DB, Delta DB
+    assert result[0]["database_name"] == "Alpha Layer"
+    assert result[0]["source_type"] == "semantic_layer"
+    assert result[1]["database_name"] == "Beta DB"
+    assert result[1]["source_type"] == "database"
+
+
+# =============================================================================
 # SemanticViewRestApi.post (bulk create) tests
 # =============================================================================
 

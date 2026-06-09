@@ -1022,7 +1022,11 @@ class SemanticLayerRestApi(BaseSupersetApi):
                 sl_q = sl_q.filter(SemanticLayer.name.ilike(f"%{name_filter}%"))
             sl_items = [("semantic_layer", obj) for obj in sl_q.all()]
 
-        # TODO: move sort + pagination to SQL before GA.
+        # Sorting and pagination are applied in Python after fetching both
+        # sources because two heterogeneous tables (Database and SemanticLayer)
+        # are combined into a single virtual list. A SQL-level UNION-based
+        # approach would reduce memory usage for large deployments.
+        # See: https://github.com/emillaurence/superset/issues/16
         return db_items + sl_items  # type: ignore
 
     @staticmethod
