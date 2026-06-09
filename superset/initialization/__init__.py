@@ -37,7 +37,11 @@ from flask_compress import Compress
 from flask_session import Session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from superset.constants import CHANGE_ME_GUEST_TOKEN_JWT_SECRET, CHANGE_ME_SECRET_KEY
+from superset.constants import (
+    CHANGE_ME_GUEST_TOKEN_JWT_SECRET,
+    CHANGE_ME_SECRET_KEY,
+    TEST_NON_DEV_SECRET_KEY,
+)
 from superset.databases.utils import make_url_safe
 from superset.extensions import (
     _event_logger,
@@ -643,7 +647,8 @@ class SupersetAppInitializer:  # pylint: disable=too-many-public-methods
         logger.warning(bottom_banner)
 
     def check_secret_key(self) -> None:
-        if self.config["SECRET_KEY"] == CHANGE_ME_SECRET_KEY:
+        insecure_keys = {CHANGE_ME_SECRET_KEY, TEST_NON_DEV_SECRET_KEY}
+        if self.config["SECRET_KEY"] in insecure_keys:
             warning = (
                 "A Default SECRET_KEY was detected, please use superset_config.py "
                 "to override it.\n"
