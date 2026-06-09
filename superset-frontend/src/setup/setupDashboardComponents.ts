@@ -23,9 +23,8 @@
  */
 
 // import dashboardComponentsRegistry from '../visualizations/presets/dashboardComponents';
-// import example from '../visualizations/dashboardComponents/ExampleComponent';
 
 export default function setupDashboardComponents() {
-  // Add custom dashboard components here. Example:
-  // dashboardComponentsRegistry.set('example', example);
+  // Add custom dashboard components here.
+  // dashboardComponentsRegistry.set('myComponent', myComponent);
 }
