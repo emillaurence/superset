@@ -14,10 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from typing import Optional
+
 from werkzeug.utils import secure_filename
 
 
-def get_filename(model_name: str, model_id: int, skip_id: bool = False) -> str:
-    slug = secure_filename(model_name)
+def get_filename(
+    model_name: Optional[str], model_id: int, skip_id: bool = False
+) -> str:
+    # ``model_name`` may be missing for partially configured or migrated
+    # assets (e.g. a chart without a ``slice_name``); fall back to the id
+    # rather than failing the export.
+    slug = secure_filename(model_name) if model_name else ""
     filename = slug if skip_id else f"{slug}_{model_id}"
     return filename if slug else str(model_id)
