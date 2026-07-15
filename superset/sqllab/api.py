@@ -413,9 +413,9 @@ class SqlLabRestApi(BaseSupersetApi):
         expected_rows: int | None = None,
     ) -> Response:
         """Create a streaming CSV response for large SQL Lab result sets."""
-        # Execute streaming command
-        # TODO: Make chunk size configurable via SUPERSET_CONFIG
-        chunk_size = 1024
+        # Execute streaming command with config-driven chunk size
+        raw_chunk = app.config.get("CSV_EXPORT_CHUNK_SIZE", 1024)
+        chunk_size = raw_chunk if isinstance(raw_chunk, int) and raw_chunk > 0 else 1024
         command = StreamingSqlResultExportCommand(client_id, chunk_size)
         command.validate()
 

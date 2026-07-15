@@ -1217,6 +1217,10 @@ ALLOWED_EXTENSIONS = {*EXCEL_EXTENSIONS, *CSV_EXTENSIONS, *COLUMNAR_EXTENSIONS}
 # note: index option should not be overridden
 CSV_EXPORT = {"encoding": "utf-8-sig"}
 
+# CSV Streaming: chunk size (number of rows per batch) for streaming CSV exports.
+# Must be a positive integer; invalid or non-positive values fall back to 1024.
+CSV_EXPORT_CHUNK_SIZE = 1024
+
 # CSV Streaming: row threshold for using streaming CSV exports
 # When row count >= this threshold, use streaming response instead of loading
 # all data into memory. Streaming provides real-time progress and handles

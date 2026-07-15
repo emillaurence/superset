@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from flask import Flask, g
 
@@ -100,3 +100,46 @@ def test_extract_export_filename_preserves_normal_name() -> None:
 def test_extract_export_filename_all_special_falls_back_to_none() -> None:
     """A name with no usable characters becomes None (generated downstream)."""
     assert _extract_filename("***") is None
+
+
+def _chart_streaming_chunk_size(config_value: object = 1024) -> int:
+    """Return the chunk_size passed to the streaming export command."""
+    from superset.charts.data.api import ChartDataRestApi
+
+    app = Flask(__name__)
+    app.config["CSV_EXPORT"] = {"encoding": "utf-8"}
+    app.config["CSV_EXPORT_CHUNK_SIZE"] = config_value
+    result = {"query_context": MagicMock()}
+    with (
+        app.app_context(),
+        patch("superset.charts.data.api.StreamingCSVExportCommand") as command_cls,
+    ):
+        command = command_cls.return_value
+        command.run.return_value = lambda: iter([b""])
+        ChartDataRestApi._create_streaming_csv_response(MagicMock(), result=result)
+    return command_cls.call_args[0][1]
+
+
+def test_chart_streaming_csv_chunk_size_default() -> None:
+    """Default chunk size is 1024."""
+    assert _chart_streaming_chunk_size() == 1024
+
+
+def test_chart_streaming_csv_chunk_size_custom() -> None:
+    """A positive integer config overrides the default chunk size."""
+    assert _chart_streaming_chunk_size(2048) == 2048
+
+
+def test_chart_streaming_csv_chunk_size_zero_falls_back() -> None:
+    """Zero falls back to 1024."""
+    assert _chart_streaming_chunk_size(0) == 1024
+
+
+def test_chart_streaming_csv_chunk_size_negative_falls_back() -> None:
+    """Negative value falls back to 1024."""
+    assert _chart_streaming_chunk_size(-1) == 1024
+
+
+def test_chart_streaming_csv_chunk_size_non_int_falls_back() -> None:
+    """Non-integer value falls back to 1024."""
+    assert _chart_streaming_chunk_size("big") == 1024
