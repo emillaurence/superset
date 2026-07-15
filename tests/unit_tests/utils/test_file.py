@@ -14,6 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from typing import Optional
+
 import pytest
 
 from superset.utils.file import get_filename
@@ -22,6 +24,9 @@ from superset.utils.file import get_filename
 @pytest.mark.parametrize(
     "model_name,model_id,skip_id,expected_filename",
     [
+        (None, 132, False, "132"),
+        (None, 132, True, "132"),
+        ("", 132, False, "132"),
         ("Energy Sankey", 132, False, "Energy_Sankey_132"),
         ("Energy Sankey", 132, True, "Energy_Sankey"),
         ("folder1/Energy Sankey", 132, True, "folder1_Energy_Sankey"),
@@ -37,7 +42,7 @@ from superset.utils.file import get_filename
     ],
 )
 def test_get_filename(
-    model_name: str, model_id: int, skip_id: bool, expected_filename: str
+    model_name: Optional[str], model_id: int, skip_id: bool, expected_filename: str
 ) -> None:
     original_filename = get_filename(model_name, model_id, skip_id)
     assert expected_filename == original_filename
