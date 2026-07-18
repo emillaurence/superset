@@ -1119,6 +1119,28 @@ def test_raise_for_access_catalog(
     )
 
 
+def test_get_datasource_access_error_msg_hides_identifiers(
+    mocker: MockerFixture,
+    app_context: None,
+) -> None:
+    """
+    The datasource permission-denied message must stay generic and must not
+    leak the identifier or name of a resource the user cannot access.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+
+    datasource = mocker.MagicMock()
+    datasource.data = {"id": 42, "name": "secret_dataset"}
+
+    message = sm.get_datasource_access_error_msg(datasource)
+    assert message == (
+        "This endpoint requires the datasource, "
+        "database or `all_datasource_access` permission"
+    )
+    assert "42" not in message
+    assert "secret_dataset" not in message
+
+
 def test_get_datasources_accessible_by_user_schema_access(
     mocker: MockerFixture,
     app_context: None,

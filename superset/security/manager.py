@@ -1003,17 +1003,21 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
 
     @staticmethod
     def get_datasource_access_error_msg(
-        datasource: "BaseDatasource | Explorable",
+        datasource: "BaseDatasource | Explorable",  # pylint: disable=unused-argument
     ) -> str:
         """
         Return the error message for the denied Superset datasource.
+
+        The message is intentionally generic and does not embed the datasource
+        identifier or name, to avoid disclosing details about a protected
+        resource to a principal that was denied access.
 
         :param datasource: The denied Superset datasource
         :returns: The error message
         """
 
         return (
-            f"This endpoint requires the datasource {datasource.data['id']}, "
+            "This endpoint requires the datasource, "
             "database or `all_datasource_access` permission"
         )
 
