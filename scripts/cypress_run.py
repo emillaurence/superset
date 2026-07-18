@@ -17,10 +17,17 @@
 
 import argparse
 import os
+import shlex
 import subprocess
 from datetime import datetime
 
-XVFB_PRE_CMD = "xvfb-run --auto-servernum --server-args='-screen 0, 1280x1024x24' "
+# Prefix that runs Cypress inside a virtual framebuffer. Kept as an explicit,
+# fixed argument list so the command can be executed without a shell.
+XVFB_PRE_CMD = [
+    "xvfb-run",
+    "--auto-servernum",
+    "--server-args=-screen 0, 1280x1024x24",
+]
 REPO = os.getenv("GITHUB_REPOSITORY") or "apache/superset"
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME") or "push"
 CYPRESS_RECORD_KEY = os.getenv("CYPRESS_RECORD_KEY") or ""
@@ -40,47 +47,65 @@ def run_cypress_for_test_file(
     test_file: str, retries: int, use_dashboard: bool, group: str, dry_run: bool, i: int
 ) -> int:
     """Runs Cypress for a single test file and retries upon failure."""
-    cypress_cmd = "./node_modules/.bin/cypress run"
+    cypress_cmd = ["./node_modules/.bin/cypress", "run"]
     os.environ["TERM"] = "xterm"
     os.environ["ELECTRON_DISABLE_GPU"] = "true"
     build_id = generate_build_id()
     browser = os.getenv("CYPRESS_BROWSER", "chrome")
-    chrome_flags = "--disable-dev-shm-usage"
+    chrome_flags = ["--disable-dev-shm-usage"]
 
     for attempt in range(retries):
-        # Create Cypress command for a single test file
-        cmd: str = ""
+        # Build the Cypress command as an explicit argument list so it can be
+        # executed without a shell (shell=False), avoiding shell interpretation
+        # of dynamic values such as the test file path and environment inputs.
+        cmd: list[str] = []
         if use_dashboard:
             # If/when we want to use cypress' dashboard feature to record the run
             group_id = f"matrix{group}-file{i}-{attempt}"
-            cmd = (
-                f"{XVFB_PRE_CMD} "
-                f'{cypress_cmd} --spec "{test_file}" '
-                f"--config numTestsKeptInMemory=0 "
-                f"--browser {browser} "
-                f"--record --group {group_id} --tag {REPO},{GITHUB_EVENT_NAME} "
-                f"--ci-build-id {build_id} "
-                f"-- {chrome_flags}"
-            )
+            cmd = [
+                *XVFB_PRE_CMD,
+                *cypress_cmd,
+                "--spec",
+                test_file,
+                "--config",
+                "numTestsKeptInMemory=0",
+                "--browser",
+                browser,
+                "--record",
+                "--group",
+                group_id,
+                "--tag",
+                f"{REPO},{GITHUB_EVENT_NAME}",
+                "--ci-build-id",
+                build_id,
+                "--",
+                *chrome_flags,
+            ]
         else:
             os.environ.pop("CYPRESS_RECORD_KEY", None)
-            cmd = (
-                f"{XVFB_PRE_CMD} "
-                f"{cypress_cmd} "
-                f"--browser {browser} "
-                f"--config numTestsKeptInMemory=0 "
-                f'--spec "{test_file}" '
-                f"-- {chrome_flags}"
-            )
-            print(f"RUN: {cmd} (Attempt {attempt + 1}/{retries})")
+            cmd = [
+                *XVFB_PRE_CMD,
+                *cypress_cmd,
+                "--browser",
+                browser,
+                "--config",
+                "numTestsKeptInMemory=0",
+                "--spec",
+                test_file,
+                "--",
+                *chrome_flags,
+            ]
+            print(f"RUN: {shlex.join(cmd)} (Attempt {attempt + 1}/{retries})")
         if dry_run:
             # Print the command instead of executing it
-            print(f"DRY RUN: {cmd}")
+            print(f"DRY RUN: {shlex.join(cmd)}")
             return 0
 
-        process = subprocess.Popen(  # noqa: S602
+        # Executed without a shell; cmd is a fixed argument list built from
+        # repo-controlled test paths and CI environment inputs.
+        process = subprocess.Popen(  # noqa: S603
             cmd,
-            shell=True,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
