@@ -35,6 +35,10 @@ from superset.utils.decorators import statsd_gauge
 
 logger = logging.getLogger(__name__)
 
+# Only these URL schemes are supported as webhook targets. Anything else
+# (e.g. file, ftp, gopher, data) is rejected before the outbound request.
+ALLOWED_WEBHOOK_SCHEMES = frozenset({"http", "https"})
+
 
 class WebhookNotification(BaseNotification):
     """
@@ -42,6 +46,28 @@ class WebhookNotification(BaseNotification):
     """
 
     type = ReportRecipientType.WEBHOOK
+
+    @staticmethod
+    def _validate_webhook_url(target: str) -> str:
+        """
+        Validate that a webhook target is a well-formed URL using a supported
+        scheme and a host component.
+        :param target: The configured webhook target URL
+        :returns: The validated webhook URL
+        :raises NotificationParamException: If the URL is malformed or uses an
+            unsupported scheme
+        """
+        try:
+            parsed = urlparse(target)
+        except ValueError as ex:
+            raise NotificationParamException("Webhook URL is malformed") from ex
+        if parsed.scheme.lower() not in ALLOWED_WEBHOOK_SCHEMES:
+            raise NotificationParamException(
+                "Webhook URL must use the http or https scheme"
+            )
+        if not parsed.netloc:
+            raise NotificationParamException("Webhook URL is malformed")
+        return target
 
     def _get_webhook_url(self) -> str:
         """
@@ -54,9 +80,9 @@ class WebhookNotification(BaseNotification):
             target = cfg.get("target") if isinstance(cfg, dict) else None
             if not target:
                 raise NotificationParamException("Webhook URL is required")
-            return target
         except (json.JSONDecodeError, KeyError, TypeError) as ex:
             raise NotificationParamException("Webhook URL is required") from ex
+        return self._validate_webhook_url(target)
 
     def _get_req_payload(self) -> dict[str, Any]:
         header_content = {
