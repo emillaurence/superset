@@ -91,6 +91,73 @@ def test_get_webhook_url_missing_url(mock_header_data) -> None:
         webhook_notification._get_webhook_url()
 
 
+@pytest.mark.parametrize(
+    "target",
+    [
+        "ftp://example.com/webhook",
+        "file:///etc/passwd",
+        "gopher://example.com",
+        "javascript:alert(1)",
+        "not a url",
+        "https://",
+        "example.com/webhook",
+    ],
+)
+def test_get_webhook_url_invalid(target, mock_header_data) -> None:
+    """
+    Test that _get_webhook_url rejects malformed URLs and unsupported schemes
+    """
+    from superset.reports.models import ReportRecipients, ReportRecipientType
+    from superset.reports.notifications.base import NotificationContent
+
+    content = NotificationContent(
+        name="test alert",
+        header_data=mock_header_data,
+        description="Test description",
+    )
+    webhook_notification = WebhookNotification(
+        recipient=ReportRecipients(
+            type=ReportRecipientType.WEBHOOK,
+            recipient_config_json=f'{{"target": "{target}"}}',
+        ),
+        content=content,
+    )
+
+    with pytest.raises(NotificationParamException):
+        webhook_notification._get_webhook_url()
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "https://example.com/webhook",
+        "http://example.com/webhook",
+        "https://example.com:8080/path?query=1",
+    ],
+)
+def test_get_webhook_url_valid(target, mock_header_data) -> None:
+    """
+    Test that _get_webhook_url accepts valid http/https URLs unchanged
+    """
+    from superset.reports.models import ReportRecipients, ReportRecipientType
+    from superset.reports.notifications.base import NotificationContent
+
+    content = NotificationContent(
+        name="test alert",
+        header_data=mock_header_data,
+        description="Test description",
+    )
+    webhook_notification = WebhookNotification(
+        recipient=ReportRecipients(
+            type=ReportRecipientType.WEBHOOK,
+            recipient_config_json=f'{{"target": "{target}"}}',
+        ),
+        content=content,
+    )
+
+    assert webhook_notification._get_webhook_url() == target
+
+
 def test_get_req_payload_basic(mock_header_data) -> None:
     """
     Test that _get_req_payload returns correct payload structure
