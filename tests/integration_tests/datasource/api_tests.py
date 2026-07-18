@@ -129,9 +129,11 @@ class TestDatasourceApi(SupersetTestCase):
         assert rv.status_code == 403
         response = json.loads(rv.data.decode("utf-8"))
         assert (
-            response["message"] == f"This endpoint requires the datasource {table.id}, "
+            response["message"] == "This endpoint requires the datasource, "
             "database or `all_datasource_access` permission"
         )
+        # The permission-denied message must not disclose the datasource id
+        assert str(table.id) not in response["message"]
 
     @pytest.mark.usefixtures("app_context", "virtual_dataset")
     @patch("superset.models.helpers.ExploreMixin.values_for_column")
