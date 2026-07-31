@@ -768,4 +768,54 @@ describe('server', () => {
       server.cleanChannel(channelId);
     });
   });
+
+  describe('validateJwtSecret', () => {
+    test('rejects secrets shorter than 32 characters', () => {
+      const result = server.validateJwtSecret('short', 'production');
+      expect(result).not.toBeNull();
+      expect(result).toContain('at least 32 bytes long');
+    });
+
+    test('rejects placeholder secret in production', () => {
+      const result = server.validateJwtSecret(
+        'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET',
+        'production',
+      );
+      expect(result).not.toBeNull();
+      expect(result).toContain('Placeholder JWT secret detected');
+    });
+
+    test('rejects placeholder secret when NODE_ENV is undefined', () => {
+      const result = server.validateJwtSecret(
+        'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET',
+        undefined,
+      );
+      expect(result).not.toBeNull();
+      expect(result).toContain('Placeholder JWT secret detected');
+    });
+
+    test('allows placeholder secret in development mode', () => {
+      const result = server.validateJwtSecret(
+        'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET',
+        'development',
+      );
+      expect(result).toBeNull();
+    });
+
+    test('allows placeholder secret in test mode', () => {
+      const result = server.validateJwtSecret(
+        'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET',
+        'test',
+      );
+      expect(result).toBeNull();
+    });
+
+    test('accepts a valid secret', () => {
+      const result = server.validateJwtSecret(
+        'my-super-secure-secret-that-is-long-enough-1234',
+        'production',
+      );
+      expect(result).toBeNull();
+    });
+  });
 });
