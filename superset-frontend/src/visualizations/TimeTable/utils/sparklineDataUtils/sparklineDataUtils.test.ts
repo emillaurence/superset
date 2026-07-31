@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { describe } from '@jest/globals';
 import {
   parseTimeRatio,
   transformTimeRatioData,
@@ -32,7 +33,6 @@ const mockEntries = [
   { time: '2023-01-04', sales: 400 },
 ];
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('sparklineDataUtils', () => {
   test('parseTimeRatio should parse string values', () => {
     expect(parseTimeRatio('5')).toBe(5);

@@ -17,6 +17,7 @@
  * under the License.
  */
 
+import { describe } from '@jest/globals';
 import {
   calculateTimeValue,
   calculateContribution,
@@ -25,7 +26,6 @@ import {
 } from './valueCalculations';
 import type { ColumnConfig, Entry } from '../../types';
 
-// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('valueCalculations', () => {
   const mockEntries: Entry[] = [
     { time: '2023-01-03', sales: 300, price: 30 },
@@ -33,7 +33,6 @@ describe('valueCalculations', () => {
     { time: '2023-01-01', sales: 100, price: 10 },
   ];
 
-  // eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
   describe('calculateTimeValue', () => {
     test('should calculate diff comparison correctly', () => {
       const column: ColumnConfig = {
@@ -287,7 +286,6 @@ describe('valueCalculations', () => {
     });
   });
 
-  // eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
   describe('calculateContribution', () => {
     test('should calculate contribution correctly', () => {
       const result = calculateContribution(300, mockEntries);
@@ -315,7 +313,6 @@ describe('valueCalculations', () => {
     });
   });
 
-  // eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
   describe('calculateAverage', () => {
     test('should calculate average correctly', () => {
       const column: ColumnConfig = {
@@ -377,7 +374,6 @@ describe('valueCalculations', () => {
     });
   });
 
-  // eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
   describe('calculateCellValue', () => {
     test('should route to time calculation', () => {
       const column: ColumnConfig = {
