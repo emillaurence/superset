@@ -67,7 +67,7 @@ const streamReturnValue: server.StreamResult[] = [
 ];
 
 import * as server from '../src/index';
-import { statsd } from '../src/index';
+import { statsd, validateJwtSecret } from '../src/index';
 
 describe('server', () => {
   let statsdIncrementMock: jest.SpiedFunction<typeof statsd.increment>;
@@ -767,5 +767,55 @@ describe('server', () => {
       // don't error
       server.cleanChannel(channelId);
     });
+  });
+});
+
+describe('validateJwtSecret', () => {
+  test('returns error for secrets shorter than 32 characters', () => {
+    const result = validateJwtSecret('short-secret', 'production');
+    expect(result).not.toBeNull();
+    expect(result).toContain('at least 32 bytes long');
+  });
+
+  test('returns error for placeholder secret in production', () => {
+    const secret = 'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET';
+    const result = validateJwtSecret(secret, 'production');
+    expect(result).not.toBeNull();
+    expect(result).toContain('Placeholder JWT secret detected');
+  });
+
+  test('returns error for placeholder secret when NODE_ENV is undefined', () => {
+    const secret = 'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET';
+    const result = validateJwtSecret(secret, undefined);
+    expect(result).not.toBeNull();
+    expect(result).toContain('Placeholder JWT secret detected');
+  });
+
+  test('returns null (warn only) for placeholder secret in development', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const secret = 'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET';
+    const result = validateJwtSecret(secret, 'development');
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
+  });
+
+  test('returns null (warn only) for placeholder secret in test', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const secret = 'CHANGE-ME-IN-PRODUCTION-GOTTA-BE-LONG-AND-SECRET';
+    const result = validateJwtSecret(secret, 'test');
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
+  });
+
+  test('returns null for a valid secret', () => {
+    const secret = 'a-secure-random-secret-that-is-at-least-32-chars';
+    const result = validateJwtSecret(secret, 'production');
+    expect(result).toBeNull();
+  });
+
+  test('error message explains how to set a secure secret', () => {
+    const result = validateJwtSecret('short', 'production');
+    expect(result).toContain('JWT_SECRET');
+    expect(result).toContain('jwtSecret');
   });
 });
